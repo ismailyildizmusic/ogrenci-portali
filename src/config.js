@@ -18,8 +18,9 @@ export const AYARLAR = {
   // Sosyal medya bağlantıları — url kısmını kendi hesaplarınla doldur.
   // Kullanmadığın satırı silebilirsin, otomatik gizlenir.
   sosyal: [
-    { ad: 'Instagram', url: 'https://instagram.com/adapazaribilsemmuzik' },
-    { ad: 'YouTube', url: '' },
-    { ad: 'X (Twitter)', url: '' },
+    { ad: 'Instagram', url: 'https://www.instagram.com/adapazaribilsemmuzikkulubu' },
+    { ad: 'YouTube', url: 'https://www.youtube.com/@Adapazaribilsemmuzikkulubu' },
   ],
+
+  tasarimci: 'İsmail Yıldız',
 }

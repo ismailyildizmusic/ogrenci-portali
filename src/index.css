@@ -379,3 +379,13 @@ input, textarea, select { font-family: var(--font-govde); font-size: 14px; }
 
 .kart { transition: box-shadow 0.15s, transform 0.15s; }
 .kart:hover { box-shadow: 0 6px 18px rgba(20, 98, 79, 0.08); }
+
+/* ---- İmza ---- */
+.imza { font-family: var(--font-veri); font-size: 11.5px; color: var(--soluk); letter-spacing: 0.04em; }
+.giris-imza {
+  text-align: center;
+  font-family: var(--font-veri);
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.05em;
+}

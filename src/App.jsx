@@ -78,6 +78,7 @@ export default function App() {
             <a key={s.ad} href={s.url} target="_blank" rel="noopener noreferrer">{s.ad}</a>
           ))}
         </span>
+        <span className="imza">designed by {AYARLAR.tasarimci}</span>
       </footer>
     </div>
   )

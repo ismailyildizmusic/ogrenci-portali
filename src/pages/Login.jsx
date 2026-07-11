@@ -75,6 +75,8 @@ export default function Login() {
             </div>
           )}
         </div>
+
+        <div className="giris-imza">designed by {AYARLAR.tasarimci}</div>
       </div>
     </div>
   )
