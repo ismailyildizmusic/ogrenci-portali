@@ -59,6 +59,14 @@ export default function App() {
         </div>
       </header>
       <main className="icerik">
+        <div className="karsilama">
+          <div>
+            <div className="karsilama-selam">Hoş geldin, {profil.ad_soyad.split(' ')[0]} 👋</div>
+            <div className="karsilama-tarih">
+              {new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+          </div>
+        </div>
         {profil.rol === 'admin'
           ? <AdminPaneli profil={profil} />
           : <OgrenciPaneli profil={profil} />}

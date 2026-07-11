@@ -340,3 +340,42 @@ input, textarea, select { font-family: var(--font-govde); font-size: 14px; }
 .alt-sosyal { display: flex; gap: 14px; }
 .alt-sosyal a { color: var(--tahta); text-decoration: none; font-weight: 600; }
 .alt-sosyal a:hover { text-decoration: underline; }
+
+/* ---- v3: duyuru görselleri, link teslim, karşılama ---- */
+.duyuru-gorsel {
+  display: block;
+  width: 100%;
+  max-height: 340px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 10px;
+  border: 1px solid var(--cizgi);
+}
+.icerik-link { color: var(--tahta); font-weight: 600; word-break: break-all; }
+
+.link-teslim { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.link-teslim input {
+  flex: 1;
+  min-width: 220px;
+  padding: 9px 12px;
+  border: 1px solid var(--cizgi);
+  border-radius: 8px;
+}
+.link-teslim input:focus { outline: 2px solid var(--tahta); border-color: var(--tahta); }
+
+.karsilama {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 18px 22px;
+  border-radius: var(--radius);
+  background: linear-gradient(120deg, var(--tahta-koyu), var(--tahta) 70%, #1a7a63);
+  color: #fff;
+}
+.karsilama-selam { font-family: var(--font-baslik); font-weight: 700; font-size: 19px; }
+.karsilama-tarih { font-size: 13px; opacity: 0.85; margin-top: 2px; text-transform: capitalize; }
+
+.kart { transition: box-shadow 0.15s, transform 0.15s; }
+.kart:hover { box-shadow: 0 6px 18px rgba(20, 98, 79, 0.08); }

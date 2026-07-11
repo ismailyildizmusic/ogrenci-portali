@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase, kayitIstemcisi, kullaniciAdindanEposta } from '../supabaseClient'
 
 const tarihYazisi = (t) => (t ? new Date(t).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' }) : '—')
+const duyuruGorselUrl = (yol) => supabase.storage.from('duyuru-gorselleri').getPublicUrl(yol).data.publicUrl
 const boyutYazisi = (b) => {
   if (!b && b !== 0) return ''
   if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB'
@@ -47,29 +48,50 @@ function DuyuruYonetimi() {
   const [liste, setListe] = useState([])
   const [baslik, setBaslik] = useState('')
   const [icerik, setIcerik] = useState('')
+  const [baglanti, setBaglanti] = useState('')
+  const [gorsel, setGorsel] = useState(null)
   const [onemli, setOnemli] = useState(false)
   const [mesaj, setMesaj] = useState(null)
+  const [bekliyor, setBekliyor] = useState(false)
 
   const yukle = async () => {
-    const { data } = await supabase.from('duyurular').select('*').order('created_at', { ascending: false })
+    const { data } = await supabase
+      .from('duyurular')
+      .select('*')
+      .order('onemli', { ascending: false })
+      .order('created_at', { ascending: false })
     setListe(data || [])
   }
   useEffect(() => { yukle() }, [])
 
   const ekle = async () => {
     if (!baslik) { setMesaj({ tip: 'hata', metin: 'Duyuru başlığı gerekli.' }); return }
-    const { error } = await supabase.from('duyurular').insert({ baslik, icerik, onemli })
+    setBekliyor(true)
+    let gorsel_yolu = null
+    if (gorsel) {
+      const guvenliAd = gorsel.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const yol = `${Date.now()}_${guvenliAd}`
+      const { error: gHata } = await supabase.storage.from('duyuru-gorselleri').upload(yol, gorsel)
+      if (gHata) { setMesaj({ tip: 'hata', metin: 'Görsel yüklenemedi: ' + gHata.message }); setBekliyor(false); return }
+      gorsel_yolu = yol
+    }
+    const { error } = await supabase.from('duyurular').insert({
+      baslik, icerik, onemli, gorsel_yolu,
+      baglanti: baglanti.trim() || null,
+    })
     if (error) setMesaj({ tip: 'hata', metin: error.message })
     else {
       setMesaj({ tip: 'basari', metin: 'Duyuru yayınlandı.' })
-      setBaslik(''); setIcerik(''); setOnemli(false)
+      setBaslik(''); setIcerik(''); setBaglanti(''); setGorsel(null); setOnemli(false)
       yukle()
     }
+    setBekliyor(false)
   }
 
-  const sil = async (id) => {
+  const sil = async (d) => {
     if (!confirm('Bu duyuru silinsin mi?')) return
-    await supabase.from('duyurular').delete().eq('id', id)
+    if (d.gorsel_yolu) await supabase.storage.from('duyuru-gorselleri').remove([d.gorsel_yolu])
+    await supabase.from('duyurular').delete().eq('id', d.id)
     yukle()
   }
 
@@ -83,16 +105,27 @@ function DuyuruYonetimi() {
           <input id="d-baslik" value={baslik} onChange={(e) => setBaslik(e.target.value)} />
         </div>
         <div className="alan">
-          <label htmlFor="d-icerik">İçerik</label>
+          <label htmlFor="d-icerik">İçerik <span style={{ fontWeight: 400 }}>(linkler otomatik tıklanabilir olur)</span></label>
           <textarea id="d-icerik" rows="4" value={icerik} onChange={(e) => setIcerik(e.target.value)} />
+        </div>
+        <div className="alan">
+          <label htmlFor="d-gorsel">Görsel (isteğe bağlı)</label>
+          <input id="d-gorsel" type="file" accept="image/*" onChange={(e) => setGorsel(e.target.files[0] || null)} />
+          {gorsel && <div className="ipucu" style={{ marginTop: 4 }}>Seçili: {gorsel.name}</div>}
+        </div>
+        <div className="alan">
+          <label htmlFor="d-link">Bağlantı butonu (isteğe bağlı)</label>
+          <input id="d-link" value={baglanti} onChange={(e) => setBaglanti(e.target.value)} placeholder="https://…" />
         </div>
         <div className="alan">
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input type="checkbox" checked={onemli} onChange={(e) => setOnemli(e.target.checked)} />
-            Önemli duyuru (📌 sabitlenmiş görünür)
+            Önemli duyuru (📌 en üstte sabitlenir)
           </label>
         </div>
-        <button className="btn genis" onClick={ekle}>Yayınla</button>
+        <button className="btn genis" onClick={ekle} disabled={bekliyor}>
+          {bekliyor ? 'Yayınlanıyor…' : 'Yayınla'}
+        </button>
       </div>
 
       <div>
@@ -101,9 +134,11 @@ function DuyuruYonetimi() {
           <div className={'kart' + (d.onemli ? ' onemli-duyuru' : '')} key={d.id}>
             <div className="baslik-satir">
               <h3>{d.onemli && '📌 '}{d.baslik}</h3>
-              <button className="btn tehlike kucuk" onClick={() => sil(d.id)}>Sil</button>
+              <button className="btn tehlike kucuk" onClick={() => sil(d)}>Sil</button>
             </div>
-            {d.icerik && <div className="aciklama" style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{d.icerik}</div>}
+            {d.gorsel_yolu && <img src={duyuruGorselUrl(d.gorsel_yolu)} alt="" className="duyuru-gorsel" loading="lazy" />}
+            {d.icerik && <div className="aciklama" style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{d.icerik}</div>}
+            {d.baglanti && <div className="meta">🔗 {d.baglanti}</div>}
             <div className="meta">{tarihYazisi(d.created_at)}</div>
           </div>
         ))}
@@ -481,9 +516,17 @@ function TeslimGorunumu() {
   }
   useEffect(() => { yukle() }, [])
 
-  const indir = async (t) => {
+  const ac = async (t) => {
+    if (t.baglanti) { window.open(t.baglanti, '_blank'); return }
     const { data, error } = await supabase.storage.from('teslimler').createSignedUrl(t.dosya_yolu, 300)
     if (!error) window.open(data.signedUrl, '_blank')
+  }
+
+  const sil = async (t) => {
+    if (!confirm(`${t.ogrenci?.ad_soyad || 'Öğrenci'} - "${t.dosya_adi}" teslimi silinsin mi?`)) return
+    if (t.dosya_yolu) await supabase.storage.from('teslimler').remove([t.dosya_yolu])
+    await supabase.from('teslimler').delete().eq('id', t.id)
+    yukle()
   }
 
   const goster = odevFiltre ? liste.filter((t) => t.odev_id === odevFiltre) : liste
@@ -500,7 +543,7 @@ function TeslimGorunumu() {
       <div className="tablo-sarici">
         <table className="tablo">
           <thead>
-            <tr><th>Öğrenci</th><th>Ödev</th><th>Dosya</th><th>Boyut</th><th>Tarih</th><th></th></tr>
+            <tr><th>Öğrenci</th><th>Ödev</th><th>Teslim</th><th>Boyut</th><th>Tarih</th><th></th></tr>
           </thead>
           <tbody>
             {goster.length === 0 && (
@@ -510,10 +553,13 @@ function TeslimGorunumu() {
               <tr key={t.id}>
                 <td>{t.ogrenci?.ad_soyad || '—'}</td>
                 <td>{t.odev?.baslik || '—'}</td>
-                <td className="mono">{t.dosya_adi}</td>
+                <td className="mono">{t.baglanti ? '🔗 Bağlantı' : t.dosya_adi}</td>
                 <td className="mono">{boyutYazisi(t.dosya_boyut)}</td>
                 <td className="mono">{tarihYazisi(t.created_at)}</td>
-                <td><button className="btn ikincil kucuk" onClick={() => indir(t)}>İndir</button></td>
+                <td style={{ whiteSpace: 'nowrap' }}>
+                  <button className="btn ikincil kucuk" onClick={() => ac(t)} style={{ marginRight: 6 }}>{t.baglanti ? 'Aç' : 'İndir'}</button>
+                  <button className="btn tehlike kucuk" onClick={() => sil(t)}>Sil</button>
+                </td>
               </tr>
             ))}
           </tbody>
