@@ -25,17 +25,89 @@ export default function AdminPaneli() {
   return (
     <div>
       <nav className="sekmeler" aria-label="Yönetim bölümleri">
+        <button className={sekme === 'duyurular' ? 'aktif' : ''} onClick={() => setSekme('duyurular')}>Duyurular</button>
         <button className={sekme === 'ogrenciler' ? 'aktif' : ''} onClick={() => setSekme('ogrenciler')}>Öğrenciler</button>
         <button className={sekme === 'sorumluluklar' ? 'aktif' : ''} onClick={() => setSekme('sorumluluklar')}>Sorumluluklar</button>
         <button className={sekme === 'etkinlikler' ? 'aktif' : ''} onClick={() => setSekme('etkinlikler')}>Etkinlikler</button>
         <button className={sekme === 'odevler' ? 'aktif' : ''} onClick={() => setSekme('odevler')}>Ödevler</button>
         <button className={sekme === 'teslimler' ? 'aktif' : ''} onClick={() => setSekme('teslimler')}>Teslimler</button>
       </nav>
+      {sekme === 'duyurular' && <DuyuruYonetimi />}
       {sekme === 'ogrenciler' && <OgrenciYonetimi ogrenciler={ogrenciler} yenile={ogrencileriYukle} />}
       {sekme === 'sorumluluklar' && <SorumlulukYonetimi ogrenciler={ogrenciler} />}
       {sekme === 'etkinlikler' && <EtkinlikYonetimi ogrenciler={ogrenciler} />}
       {sekme === 'odevler' && <OdevYonetimi />}
       {sekme === 'teslimler' && <TeslimGorunumu ogrenciler={ogrenciler} />}
+    </div>
+  )
+}
+
+/* ---------- Duyurular ---------- */
+function DuyuruYonetimi() {
+  const [liste, setListe] = useState([])
+  const [baslik, setBaslik] = useState('')
+  const [icerik, setIcerik] = useState('')
+  const [onemli, setOnemli] = useState(false)
+  const [mesaj, setMesaj] = useState(null)
+
+  const yukle = async () => {
+    const { data } = await supabase.from('duyurular').select('*').order('created_at', { ascending: false })
+    setListe(data || [])
+  }
+  useEffect(() => { yukle() }, [])
+
+  const ekle = async () => {
+    if (!baslik) { setMesaj({ tip: 'hata', metin: 'Duyuru başlığı gerekli.' }); return }
+    const { error } = await supabase.from('duyurular').insert({ baslik, icerik, onemli })
+    if (error) setMesaj({ tip: 'hata', metin: error.message })
+    else {
+      setMesaj({ tip: 'basari', metin: 'Duyuru yayınlandı.' })
+      setBaslik(''); setIcerik(''); setOnemli(false)
+      yukle()
+    }
+  }
+
+  const sil = async (id) => {
+    if (!confirm('Bu duyuru silinsin mi?')) return
+    await supabase.from('duyurular').delete().eq('id', id)
+    yukle()
+  }
+
+  return (
+    <div className="iki-kolon">
+      <div className="form-kutu">
+        <h3>Duyuru yayınla</h3>
+        {mesaj && <div className={mesaj.tip}>{mesaj.metin}</div>}
+        <div className="alan">
+          <label htmlFor="d-baslik">Başlık</label>
+          <input id="d-baslik" value={baslik} onChange={(e) => setBaslik(e.target.value)} />
+        </div>
+        <div className="alan">
+          <label htmlFor="d-icerik">İçerik</label>
+          <textarea id="d-icerik" rows="4" value={icerik} onChange={(e) => setIcerik(e.target.value)} />
+        </div>
+        <div className="alan">
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={onemli} onChange={(e) => setOnemli(e.target.checked)} />
+            Önemli duyuru (📌 sabitlenmiş görünür)
+          </label>
+        </div>
+        <button className="btn genis" onClick={ekle}>Yayınla</button>
+      </div>
+
+      <div>
+        {liste.length === 0 && <div className="bos">Henüz duyuru yok.</div>}
+        {liste.map((d) => (
+          <div className={'kart' + (d.onemli ? ' onemli-duyuru' : '')} key={d.id}>
+            <div className="baslik-satir">
+              <h3>{d.onemli && '📌 '}{d.baslik}</h3>
+              <button className="btn tehlike kucuk" onClick={() => sil(d.id)}>Sil</button>
+            </div>
+            {d.icerik && <div className="aciklama" style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{d.icerik}</div>}
+            <div className="meta">{tarihYazisi(d.created_at)}</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

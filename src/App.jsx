@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient'
 import Login from './pages/Login.jsx'
 import OgrenciPaneli from './pages/OgrenciPaneli.jsx'
 import AdminPaneli from './pages/AdminPaneli.jsx'
+import { AYARLAR } from './config'
 
 export default function App() {
   const [oturum, setOturum] = useState(null)
@@ -48,7 +49,8 @@ export default function App() {
     <div>
       <header className="ust-bar">
         <div className="marka">
-          Öğrenci Portalı
+          <img src="/logo.png" alt="" className="bar-logo" onError={(e) => { e.target.style.display = 'none' }} />
+          {AYARLAR.kisaAd}
           <span className="rozet">{profil.rol === 'admin' ? 'Yönetim' : 'Öğrenci'}</span>
         </div>
         <div className="kullanici">
@@ -61,6 +63,14 @@ export default function App() {
           ? <AdminPaneli profil={profil} />
           : <OgrenciPaneli profil={profil} />}
       </main>
+      <footer className="alt-bilgi">
+        <span>{AYARLAR.resmiAd}</span>
+        <span className="alt-sosyal">
+          {AYARLAR.sosyal.filter((s) => s.url).map((s) => (
+            <a key={s.ad} href={s.url} target="_blank" rel="noopener noreferrer">{s.ad}</a>
+          ))}
+        </span>
+      </footer>
     </div>
   )
 }

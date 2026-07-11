@@ -9,22 +9,49 @@ const boyutYazisi = (b) => {
 const tarihYazisi = (t) => (t ? new Date(t).toLocaleString('tr-TR', { dateStyle: 'medium', timeStyle: 'short' }) : '')
 
 export default function OgrenciPaneli({ profil }) {
-  const [sekme, setSekme] = useState('sorumluluklar')
+  const [sekme, setSekme] = useState('duyurular')
 
   return (
     <div>
       <nav className="sekmeler" aria-label="Bölümler">
+        <button className={sekme === 'duyurular' ? 'aktif' : ''} onClick={() => setSekme('duyurular')}>Duyurular</button>
         <button className={sekme === 'sorumluluklar' ? 'aktif' : ''} onClick={() => setSekme('sorumluluklar')}>Sorumluluklarım</button>
         <button className={sekme === 'etkinlikler' ? 'aktif' : ''} onClick={() => setSekme('etkinlikler')}>Etkinliklerim</button>
         <button className={sekme === 'odevler' ? 'aktif' : ''} onClick={() => setSekme('odevler')}>Ödevlerim</button>
         <button className={sekme === 'ayarlar' ? 'aktif' : ''} onClick={() => setSekme('ayarlar')}>Ayarlar</button>
       </nav>
+      {sekme === 'duyurular' && <Duyurular />}
       {sekme === 'sorumluluklar' && <Sorumluluklar profil={profil} />}
       {sekme === 'etkinlikler' && <Etkinlikler profil={profil} />}
       {sekme === 'odevler' && <Odevler profil={profil} />}
       {sekme === 'ayarlar' && <Ayarlar />}
     </div>
   )
+}
+
+/* ---------- Duyurular ---------- */
+function Duyurular() {
+  const [liste, setListe] = useState([])
+
+  useEffect(() => {
+    supabase
+      .from('duyurular')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setListe(data || []))
+  }, [])
+
+  if (liste.length === 0) return <div className="bos">Henüz duyuru yok.</div>
+
+  return liste.map((d) => (
+    <div className={'kart' + (d.onemli ? ' onemli-duyuru' : '')} key={d.id}>
+      <div className="baslik-satir">
+        <h3>{d.onemli && '📌 '}{d.baslik}</h3>
+      </div>
+      {d.icerik && <div className="aciklama" style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{d.icerik}</div>}
+      <div className="meta">{tarihYazisi(d.created_at)}</div>
+    </div>
+  ))
 }
 
 /* ---------- Sorumluluklar ---------- */

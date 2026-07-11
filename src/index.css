@@ -283,3 +283,60 @@ input, textarea, select { font-family: var(--font-govde); font-size: 14px; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* ---- Kulüp kimliği güncellemeleri ---- */
+.giris-sutun { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 16px; }
+.giris-kart { max-width: none; }
+.giris-logo { width: 92px; height: 92px; object-fit: contain; margin: 0 auto 14px; display: block; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.15)); }
+.giris-kart .amblem, .giris-kart h1 { text-align: center; }
+.bar-logo { width: 34px; height: 34px; object-fit: contain; }
+
+.hakkinda-kart {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  padding: 20px 24px;
+  color: #eaf3ef;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+.hakkinda-kart h2 {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 8px;
+}
+.hakkinda-kart p { margin-bottom: 8px; }
+.sosyal-satir { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.sosyal-btn {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.sosyal-btn:hover { background: rgba(255, 255, 255, 0.28); }
+
+.onemli-duyuru { border-left: 4px solid var(--tahta); background: #fbfdf9; }
+
+.alt-bilgi {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 18px 22px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--soluk);
+  font-size: 12.5px;
+  border-top: 1px solid var(--cizgi);
+}
+.alt-sosyal { display: flex; gap: 14px; }
+.alt-sosyal a { color: var(--tahta); text-decoration: none; font-weight: 600; }
+.alt-sosyal a:hover { text-decoration: underline; }
