@@ -63,7 +63,6 @@ export default function Login() {
 
         <div className="hakkinda-kart">
           <h2>Hakkında</h2>
-          <p><strong>{AYARLAR.resmiAd}</strong></p>
           <p>{AYARLAR.hakkinda}</p>
           {sosyalHesaplar.length > 0 && (
             <div className="sosyal-satir">

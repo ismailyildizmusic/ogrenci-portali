@@ -4,13 +4,13 @@
 // ==========================================================
 
 export const AYARLAR = {
-  kisaAd: 'Adapazarı BİLSEM Müzik',
-  uzunAd: 'Adapazarı BİLSEM Müzik Kulübü',
-  resmiAd: 'Adapazarı Bilim ve Sanat Merkezi Müzik Kulübü',
-  etiket: '@adapazaribilsemmuzik',
+  kisaAd: 'Adapazarı Bilsem Müzik Kulübü',
+  uzunAd: 'Adapazarı Bilsem Müzik Kulübü',
+  resmiAd: 'Adapazarı Bilsem Müzik Kulübü',
+  etiket: '@adapazaribilsemmuzikkulubu',
 
   hakkinda:
-    'Adapazarı Bilim ve Sanat Merkezi Müzik Kulübü; öğrencilerimizin müzikal ' +
+    'Adapazarı Bilsem Müzik Kulübü; öğrencilerimizin müzikal ' +
     'yeteneklerini keşfetmeleri, geliştirmeleri ve sahneye taşımaları için ' +
     'çalışmalar yürütür. Bu portal, kulüp öğrencilerimizin sorumluluklarını, ' +
     'etkinliklerini ve ödev teslimlerini tek bir yerden takip etmesi için hazırlanmıştır.',
