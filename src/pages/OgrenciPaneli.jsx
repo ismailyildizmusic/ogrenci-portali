@@ -244,6 +244,17 @@ function Odevler({ profil }) {
               {benimTeslimlerim.length > 0 && <span className="durum tamamlandi">Teslim edildi</span>}
             </div>
             {odev.son_tarih && <div className="meta">Son teslim: {tarihYazisi(odev.son_tarih)}</div>}
+            {odev.dosya_yolu && (
+              <div style={{ marginTop: 10 }}>
+                <a
+                  href={supabase.storage.from('odev-dosyalari').getPublicUrl(odev.dosya_yolu).data.publicUrl}
+                  target="_blank" rel="noopener noreferrer"
+                  className="btn ikincil kucuk" style={{ textDecoration: 'none' }}
+                >
+                  📎 Yönergeyi indir ({odev.dosya_adi})
+                </a>
+              </div>
+            )}
 
             <div style={{ marginTop: 14 }}>
               <label className="yukleme-alani" style={{ display: 'block', cursor: 'pointer' }}>
@@ -272,16 +283,24 @@ function Odevler({ profil }) {
             </div>
 
             {benimTeslimlerim.map((t) => (
-              <div className="dosya-satir" key={t.id}>
-                <span className="ad">
-                  {t.baglanti ? '🔗 ' : '📎 '}
-                  {t.baglanti ? t.baglanti : t.dosya_adi}
-                  {t.dosya_boyut ? ' · ' + boyutYazisi(t.dosya_boyut) : ''} · {tarihYazisi(t.created_at)}
-                </span>
-                <span style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn ikincil kucuk" onClick={() => indir(t)}>{t.baglanti ? 'Aç' : 'İndir'}</button>
-                  <button className="btn tehlike kucuk" onClick={() => sil(t)}>Sil</button>
-                </span>
+              <div key={t.id}>
+                <div className="dosya-satir">
+                  <span className="ad">
+                    {t.baglanti ? '🔗 ' : '📎 '}
+                    {t.baglanti ? t.baglanti : t.dosya_adi}
+                    {t.dosya_boyut ? ' · ' + boyutYazisi(t.dosya_boyut) : ''} · {tarihYazisi(t.created_at)}
+                  </span>
+                  <span style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn ikincil kucuk" onClick={() => indir(t)}>{t.baglanti ? 'Aç' : 'İndir'}</button>
+                    <button className="btn tehlike kucuk" onClick={() => sil(t)}>Sil</button>
+                  </span>
+                </div>
+                {(t.puan != null || t.geri_bildirim) && (
+                  <div className="degerlendirme">
+                    {t.puan != null && <span className="puan-rozet">{t.puan} puan</span>}
+                    {t.geri_bildirim && <span className="geri-bildirim">💬 {t.geri_bildirim}</span>}
+                  </div>
+                )}
               </div>
             ))}
           </div>

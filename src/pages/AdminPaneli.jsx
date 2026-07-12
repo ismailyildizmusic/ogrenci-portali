@@ -12,6 +12,7 @@ const boyutYazisi = (b) => {
 export default function AdminPaneli() {
   const [sekme, setSekme] = useState('ogrenciler')
   const [ogrenciler, setOgrenciler] = useState([])
+  const [yeniTeslim, setYeniTeslim] = useState(0)
 
   const ogrencileriYukle = async () => {
     const { data } = await supabase
@@ -23,15 +24,68 @@ export default function AdminPaneli() {
   }
   useEffect(() => { ogrencileriYukle() }, [])
 
+  // Son bakıştan bu yana gelen teslim sayısı
+  useEffect(() => {
+    const son = localStorage.getItem('sonTeslimBakisi') || '1970-01-01'
+    supabase
+      .from('teslimler')
+      .select('id', { count: 'exact', head: true })
+      .gt('created_at', son)
+      .then(({ count }) => setYeniTeslim(count || 0))
+  }, [])
+
+  const sekmeSec = (s) => {
+    setSekme(s)
+    if (s === 'teslimler') {
+      localStorage.setItem('sonTeslimBakisi', new Date().toISOString())
+      setYeniTeslim(0)
+    }
+  }
+
+  const [ozet, setOzet] = useState(null)
+  useEffect(() => {
+    Promise.all([
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('rol', 'ogrenci'),
+      supabase.from('teslimler').select('id', { count: 'exact', head: true }),
+      supabase.from('teslimler').select('id', { count: 'exact', head: true }).is('puan', null).is('geri_bildirim', null),
+      supabase.from('etkinlikler').select('baslik, tarih').gte('tarih', new Date().toISOString()).order('tarih').limit(1),
+    ]).then(([o, t, b, e]) => {
+      setOzet({
+        ogrenci: o.count || 0,
+        teslim: t.count || 0,
+        bekleyen: b.count || 0,
+        etkinlik: e.data?.[0] || null,
+      })
+    })
+  }, [])
+
   return (
     <div>
+      {ozet && (
+        <div className="ozet-satir">
+          <div className="ozet-kart"><div className="ozet-sayi">{ozet.ogrenci}</div><div className="ozet-etiket">Öğrenci</div></div>
+          <div className="ozet-kart"><div className="ozet-sayi">{ozet.teslim}</div><div className="ozet-etiket">Toplam teslim</div></div>
+          <div className="ozet-kart"><div className="ozet-sayi">{ozet.bekleyen}</div><div className="ozet-etiket">Değerlendirme bekleyen</div></div>
+          <div className="ozet-kart">
+            <div className="ozet-sayi" style={{ fontSize: 15, lineHeight: 1.3 }}>
+              {ozet.etkinlik ? ozet.etkinlik.baslik : '—'}
+            </div>
+            <div className="ozet-etiket">
+              {ozet.etkinlik ? 'Yaklaşan: ' + tarihYazisi(ozet.etkinlik.tarih) : 'Yaklaşan etkinlik yok'}
+            </div>
+          </div>
+        </div>
+      )}
       <nav className="sekmeler" aria-label="Yönetim bölümleri">
-        <button className={sekme === 'duyurular' ? 'aktif' : ''} onClick={() => setSekme('duyurular')}>Duyurular</button>
-        <button className={sekme === 'ogrenciler' ? 'aktif' : ''} onClick={() => setSekme('ogrenciler')}>Öğrenciler</button>
-        <button className={sekme === 'sorumluluklar' ? 'aktif' : ''} onClick={() => setSekme('sorumluluklar')}>Sorumluluklar</button>
-        <button className={sekme === 'etkinlikler' ? 'aktif' : ''} onClick={() => setSekme('etkinlikler')}>Etkinlikler</button>
-        <button className={sekme === 'odevler' ? 'aktif' : ''} onClick={() => setSekme('odevler')}>Ödevler</button>
-        <button className={sekme === 'teslimler' ? 'aktif' : ''} onClick={() => setSekme('teslimler')}>Teslimler</button>
+        <button className={sekme === 'duyurular' ? 'aktif' : ''} onClick={() => sekmeSec('duyurular')}>Duyurular</button>
+        <button className={sekme === 'ogrenciler' ? 'aktif' : ''} onClick={() => sekmeSec('ogrenciler')}>Öğrenciler</button>
+        <button className={sekme === 'sorumluluklar' ? 'aktif' : ''} onClick={() => sekmeSec('sorumluluklar')}>Sorumluluklar</button>
+        <button className={sekme === 'etkinlikler' ? 'aktif' : ''} onClick={() => sekmeSec('etkinlikler')}>Etkinlikler</button>
+        <button className={sekme === 'odevler' ? 'aktif' : ''} onClick={() => sekmeSec('odevler')}>Ödevler</button>
+        <button className={sekme === 'teslimler' ? 'aktif' : ''} onClick={() => sekmeSec('teslimler')}>
+          Teslimler{yeniTeslim > 0 && <span className="sekme-rozet">{yeniTeslim}</span>}
+        </button>
+        <button className={sekme === 'ayarlar' ? 'aktif' : ''} onClick={() => sekmeSec('ayarlar')}>Ayarlar</button>
       </nav>
       {sekme === 'duyurular' && <DuyuruYonetimi />}
       {sekme === 'ogrenciler' && <OgrenciYonetimi ogrenciler={ogrenciler} yenile={ogrencileriYukle} />}
@@ -39,6 +93,7 @@ export default function AdminPaneli() {
       {sekme === 'etkinlikler' && <EtkinlikYonetimi ogrenciler={ogrenciler} />}
       {sekme === 'odevler' && <OdevYonetimi />}
       {sekme === 'teslimler' && <TeslimGorunumu ogrenciler={ogrenciler} />}
+      {sekme === 'ayarlar' && <AdminAyarlar />}
     </div>
   )
 }
@@ -437,7 +492,9 @@ function OdevYonetimi() {
   const [baslik, setBaslik] = useState('')
   const [aciklama, setAciklama] = useState('')
   const [sonTarih, setSonTarih] = useState('')
+  const [dosya, setDosya] = useState(null)
   const [mesaj, setMesaj] = useState(null)
+  const [bekliyor, setBekliyor] = useState(false)
 
   const yukle = async () => {
     const { data } = await supabase.from('odevler').select('*').order('created_at', { ascending: false })
@@ -447,14 +504,32 @@ function OdevYonetimi() {
 
   const ekle = async () => {
     if (!baslik) { setMesaj({ tip: 'hata', metin: 'Ödev başlığı gerekli.' }); return }
-    const { error } = await supabase.from('odevler').insert({ baslik, aciklama, son_tarih: sonTarih || null })
+    setBekliyor(true)
+    let dosya_yolu = null, dosya_adi = null
+    if (dosya) {
+      const guvenliAd = dosya.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const yol = `${Date.now()}_${guvenliAd}`
+      const { error: dHata } = await supabase.storage.from('odev-dosyalari').upload(yol, dosya)
+      if (dHata) { setMesaj({ tip: 'hata', metin: 'Yönerge dosyası yüklenemedi: ' + dHata.message }); setBekliyor(false); return }
+      dosya_yolu = yol
+      dosya_adi = dosya.name
+    }
+    const { error } = await supabase.from('odevler').insert({
+      baslik, aciklama, son_tarih: sonTarih || null, dosya_yolu, dosya_adi,
+    })
     if (error) setMesaj({ tip: 'hata', metin: error.message })
-    else { setMesaj({ tip: 'basari', metin: 'Ödev yayınlandı, tüm öğrenciler görebilir.' }); setBaslik(''); setAciklama(''); setSonTarih(''); yukle() }
+    else {
+      setMesaj({ tip: 'basari', metin: 'Ödev yayınlandı, tüm öğrenciler görebilir.' })
+      setBaslik(''); setAciklama(''); setSonTarih(''); setDosya(null)
+      yukle()
+    }
+    setBekliyor(false)
   }
 
-  const sil = async (id) => {
+  const sil = async (o) => {
     if (!confirm('Bu ödev ve tüm teslim kayıtları silinsin mi?')) return
-    await supabase.from('odevler').delete().eq('id', id)
+    if (o.dosya_yolu) await supabase.storage.from('odev-dosyalari').remove([o.dosya_yolu])
+    await supabase.from('odevler').delete().eq('id', o.id)
     yukle()
   }
 
@@ -475,7 +550,14 @@ function OdevYonetimi() {
           <label htmlFor="od-aciklama">Açıklama</label>
           <textarea id="od-aciklama" rows="3" value={aciklama} onChange={(e) => setAciklama(e.target.value)} />
         </div>
-        <button className="btn genis" onClick={ekle}>Yayınla</button>
+        <div className="alan">
+          <label htmlFor="od-dosya">Yönerge dosyası (isteğe bağlı — nota PDF'i, eşlik kaydı vb.)</label>
+          <input id="od-dosya" type="file" onChange={(e) => setDosya(e.target.files[0] || null)} />
+          {dosya && <div className="ipucu" style={{ marginTop: 4 }}>Seçili: {dosya.name}</div>}
+        </div>
+        <button className="btn genis" onClick={ekle} disabled={bekliyor}>
+          {bekliyor ? 'Yayınlanıyor…' : 'Yayınla'}
+        </button>
       </div>
 
       <div>
@@ -487,8 +569,13 @@ function OdevYonetimi() {
                 <h3>{o.baslik}</h3>
                 {o.aciklama && <div className="aciklama">{o.aciklama}</div>}
               </div>
-              <button className="btn tehlike kucuk" onClick={() => sil(o.id)}>Sil</button>
+              <button className="btn tehlike kucuk" onClick={() => sil(o)}>Sil</button>
             </div>
+            {o.dosya_yolu && (
+              <div className="meta">
+                📎 Yönerge: <a href={supabase.storage.from('odev-dosyalari').getPublicUrl(o.dosya_yolu).data.publicUrl} target="_blank" rel="noopener noreferrer" className="icerik-link">{o.dosya_adi}</a>
+              </div>
+            )}
             <div className="meta">Son teslim: {tarihYazisi(o.son_tarih)}</div>
           </div>
         ))}
@@ -497,17 +584,21 @@ function OdevYonetimi() {
   )
 }
 
-/* ---------- Teslimler ---------- */
+/* ---------- Teslimler: puanlama + geç teslim ---------- */
 function TeslimGorunumu() {
   const [liste, setListe] = useState([])
   const [odevFiltre, setOdevFiltre] = useState('')
   const [odevler, setOdevler] = useState([])
+  const [secili, setSecili] = useState(null)
+  const [puan, setPuan] = useState('')
+  const [geriBildirim, setGeriBildirim] = useState('')
+  const [mesaj, setMesaj] = useState(null)
 
   const yukle = async () => {
     const [{ data: t }, { data: o }] = await Promise.all([
       supabase
         .from('teslimler')
-        .select('*, ogrenci:profiles(ad_soyad, kullanici_adi), odev:odevler(baslik)')
+        .select('*, ogrenci:profiles(ad_soyad, kullanici_adi), odev:odevler(baslik, son_tarih)')
         .order('created_at', { ascending: false }),
       supabase.from('odevler').select('id, baslik'),
     ])
@@ -516,10 +607,20 @@ function TeslimGorunumu() {
   }
   useEffect(() => { yukle() }, [])
 
+  const gecMi = (t) => t.odev?.son_tarih && new Date(t.created_at) > new Date(t.odev.son_tarih)
+
   const ac = async (t) => {
     if (t.baglanti) { window.open(t.baglanti, '_blank'); return }
     const { data, error } = await supabase.storage.from('teslimler').createSignedUrl(t.dosya_yolu, 300)
     if (!error) window.open(data.signedUrl, '_blank')
+  }
+
+  const [calan, setCalan] = useState(null) // { id, url }
+  const sesMi = (t) => t.dosya_adi && /\.(mp3|wav|m4a|ogg|aac)$/i.test(t.dosya_adi)
+  const dinle = async (t) => {
+    if (calan?.id === t.id) { setCalan(null); return }
+    const { data, error } = await supabase.storage.from('teslimler').createSignedUrl(t.dosya_yolu, 3600)
+    if (!error) setCalan({ id: t.id, url: data.signedUrl })
   }
 
   const sil = async (t) => {
@@ -529,10 +630,56 @@ function TeslimGorunumu() {
     yukle()
   }
 
+  const puanlamayiAc = (t) => {
+    setSecili(t)
+    setPuan(t.puan ?? '')
+    setGeriBildirim(t.geri_bildirim ?? '')
+    setMesaj(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const puanKaydet = async () => {
+    const p = puan === '' ? null : Number(puan)
+    if (p !== null && (isNaN(p) || p < 0 || p > 100)) {
+      setMesaj({ tip: 'hata', metin: 'Puan 0-100 arasında olmalı.' })
+      return
+    }
+    const { error } = await supabase
+      .from('teslimler')
+      .update({ puan: p, geri_bildirim: geriBildirim.trim() || null })
+      .eq('id', secili.id)
+    if (error) setMesaj({ tip: 'hata', metin: error.message })
+    else {
+      setMesaj({ tip: 'basari', metin: 'Değerlendirme kaydedildi, öğrenci panelinde görünecek.' })
+      setSecili(null)
+      yukle()
+    }
+  }
+
   const goster = odevFiltre ? liste.filter((t) => t.odev_id === odevFiltre) : liste
 
   return (
     <div>
+      {mesaj && <div className={mesaj.tip}>{mesaj.metin}</div>}
+
+      {secili && (
+        <div className="form-kutu" style={{ position: 'static', marginBottom: 18 }}>
+          <h3>Değerlendir: {secili.ogrenci?.ad_soyad} — {secili.odev?.baslik}</h3>
+          <div className="alan">
+            <label htmlFor="p-puan">Puan (0-100, boş bırakılabilir)</label>
+            <input id="p-puan" type="number" min="0" max="100" value={puan} onChange={(e) => setPuan(e.target.value)} style={{ maxWidth: 120 }} />
+          </div>
+          <div className="alan">
+            <label htmlFor="p-gb">Geri bildirim</label>
+            <textarea id="p-gb" rows="3" value={geriBildirim} onChange={(e) => setGeriBildirim(e.target.value)} placeholder="ör. Tempo çok iyi, ikinci bölümde nüanslara dikkat et." />
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" onClick={puanKaydet}>Kaydet</button>
+            <button className="btn ikincil" onClick={() => setSecili(null)}>Vazgeç</button>
+          </div>
+        </div>
+      )}
+
       <div className="alan" style={{ maxWidth: 320 }}>
         <label htmlFor="t-filtre">Ödeve göre filtrele</label>
         <select id="t-filtre" value={odevFiltre} onChange={(e) => setOdevFiltre(e.target.value)}>
@@ -543,7 +690,7 @@ function TeslimGorunumu() {
       <div className="tablo-sarici">
         <table className="tablo">
           <thead>
-            <tr><th>Öğrenci</th><th>Ödev</th><th>Teslim</th><th>Boyut</th><th>Tarih</th><th></th></tr>
+            <tr><th>Öğrenci</th><th>Ödev</th><th>Teslim</th><th>Puan</th><th>Tarih</th><th></th></tr>
           </thead>
           <tbody>
             {goster.length === 0 && (
@@ -554,17 +701,68 @@ function TeslimGorunumu() {
                 <td>{t.ogrenci?.ad_soyad || '—'}</td>
                 <td>{t.odev?.baslik || '—'}</td>
                 <td className="mono">{t.baglanti ? '🔗 Bağlantı' : t.dosya_adi}</td>
-                <td className="mono">{boyutYazisi(t.dosya_boyut)}</td>
-                <td className="mono">{tarihYazisi(t.created_at)}</td>
+                <td>{t.puan != null ? <span className="puan-rozet">{t.puan}</span> : <span style={{ color: 'var(--soluk)' }}>—</span>}</td>
+                <td className="mono">
+                  {tarihYazisi(t.created_at)}
+                  {gecMi(t) && <span className="durum gec" style={{ marginLeft: 6 }}>Gecikti</span>}
+                </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
+                  {sesMi(t) && (
+                    <button className="btn kucuk" onClick={() => dinle(t)} style={{ marginRight: 6 }}>
+                      {calan?.id === t.id ? '⏹ Kapat' : '▶ Dinle'}
+                    </button>
+                  )}
                   <button className="btn ikincil kucuk" onClick={() => ac(t)} style={{ marginRight: 6 }}>{t.baglanti ? 'Aç' : 'İndir'}</button>
+                  <button className="btn kucuk" onClick={() => puanlamayiAc(t)} style={{ marginRight: 6 }}>{t.puan != null || t.geri_bildirim ? 'Düzenle' : 'Puanla'}</button>
                   <button className="btn tehlike kucuk" onClick={() => sil(t)}>Sil</button>
                 </td>
               </tr>
-            ))}
+            )).flatMap((satir, i) => {
+              const t = goster[i]
+              if (calan?.id !== t.id) return [satir]
+              return [satir, (
+                <tr key={t.id + '-ses'}>
+                  <td colSpan="6" style={{ background: 'var(--tebesir)' }}>
+                    <audio controls autoPlay src={calan.url} style={{ width: '100%' }} />
+                  </td>
+                </tr>
+              )]
+            })}
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+
+/* ---------- Ayarlar (admin şifre değiştirme) ---------- */
+function AdminAyarlar() {
+  const [sifre, setSifre] = useState('')
+  const [tekrar, setTekrar] = useState('')
+  const [mesaj, setMesaj] = useState(null)
+
+  const degistir = async () => {
+    if (sifre.length < 8) { setMesaj({ tip: 'hata', metin: 'Yönetici şifresi en az 8 karakter olmalı.' }); return }
+    if (sifre !== tekrar) { setMesaj({ tip: 'hata', metin: 'Şifreler birbirini tutmuyor.' }); return }
+    const { error } = await supabase.auth.updateUser({ password: sifre })
+    if (error) setMesaj({ tip: 'hata', metin: error.message })
+    else { setMesaj({ tip: 'basari', metin: 'Yönetici şifresi güncellendi.' }); setSifre(''); setTekrar('') }
+  }
+
+  return (
+    <div className="form-kutu" style={{ maxWidth: 380, position: 'static' }}>
+      <h3>Yönetici şifresini değiştir</h3>
+      {mesaj && <div className={mesaj.tip}>{mesaj.metin}</div>}
+      <div className="alan">
+        <label htmlFor="a-sifre">Yeni şifre</label>
+        <input id="a-sifre" type="password" value={sifre} onChange={(e) => setSifre(e.target.value)} />
+      </div>
+      <div className="alan">
+        <label htmlFor="a-tekrar">Yeni şifre (tekrar)</label>
+        <input id="a-tekrar" type="password" value={tekrar} onChange={(e) => setTekrar(e.target.value)} />
+      </div>
+      <button className="btn" onClick={degistir}>Kaydet</button>
     </div>
   )
 }
