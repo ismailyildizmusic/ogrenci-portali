@@ -150,13 +150,14 @@ function Etkinlikler({ profil }) {
   ))
 }
 
-/* ---------- Ödevler: dosya veya bağlantıyla teslim ---------- */
+/* ---------- Ödevler: iki aşamalı teslim (seç → gönder) ---------- */
 function Odevler({ profil }) {
   const [odevler, setOdevler] = useState([])
   const [teslimler, setTeslimler] = useState([])
   const [mesaj, setMesaj] = useState(null)
-  const [yukleniyorId, setYukleniyorId] = useState(null)
-  const [linkler, setLinkler] = useState({})
+  const [gonderilenId, setGonderilenId] = useState(null)
+  const [secilenler, setSecilenler] = useState({}) // { odevId: File }
+  const [linkler, setLinkler] = useState({})       // { odevId: url }
   const dosyaRef = useRef({})
 
   const yukle = async () => {
@@ -169,55 +170,72 @@ function Odevler({ profil }) {
   }
   useEffect(() => { yukle() }, [])
 
-  const dosyaYukle = async (odev, dosya) => {
-    if (!dosya) return
+  const dosyaSec = (odev, dosya) => {
     setMesaj(null)
-    setYukleniyorId(odev.id)
-    const guvenliAd = dosya.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const yol = `${profil.id}/${odev.id}/${Date.now()}_${guvenliAd}`
-    const { error: depoHatasi } = await supabase.storage.from('teslimler').upload(yol, dosya)
-    if (depoHatasi) {
-      setMesaj({ tip: 'hata', metin: 'Yükleme başarısız: ' + depoHatasi.message + ' (Dosya 50 MB sınırını aşıyorsa aşağıdan bağlantıyla teslim edebilirsin.)' })
-      setYukleniyorId(null)
-      return
-    }
-    const { error: kayitHatasi } = await supabase.from('teslimler').insert({
-      odev_id: odev.id,
-      ogrenci_id: profil.id,
-      dosya_yolu: yol,
-      dosya_adi: dosya.name,
-      dosya_boyut: dosya.size,
-    })
-    if (kayitHatasi) setMesaj({ tip: 'hata', metin: 'Kayıt hatası: ' + kayitHatasi.message })
-    else setMesaj({ tip: 'basari', metin: `"${dosya.name}" başarıyla yüklendi.` })
-    setYukleniyorId(null)
-    yukle()
+    setSecilenler((s) => ({ ...s, [odev.id]: dosya || null }))
   }
 
-  const baglantiGonder = async (odev) => {
+  const dosyaKaldir = (odev) => {
+    setSecilenler((s) => ({ ...s, [odev.id]: null }))
+    if (dosyaRef.current[odev.id]) dosyaRef.current[odev.id].value = ''
+  }
+
+  const teslimEt = async (odev) => {
+    const dosya = secilenler[odev.id] || null
     const url = (linkler[odev.id] || '').trim()
-    if (!/^https?:\/\//.test(url)) {
-      setMesaj({ tip: 'hata', metin: 'Geçerli bir bağlantı yapıştır (https:// ile başlamalı).' })
+
+    if (!dosya && !url) {
+      setMesaj({ tip: 'hata', metin: 'Teslim etmek için önce bir dosya seç veya bağlantı yapıştır.' })
       return
     }
+    if (url && !/^https?:\/\//.test(url)) {
+      setMesaj({ tip: 'hata', metin: 'Bağlantı https:// ile başlamalı.' })
+      return
+    }
+
+    setMesaj(null)
+    setGonderilenId(odev.id)
+
+    let dosya_yolu = null, dosya_adi = null, dosya_boyut = null
+    if (dosya) {
+      const guvenliAd = dosya.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const yol = `${profil.id}/${odev.id}/${Date.now()}_${guvenliAd}`
+      const { error: depoHatasi } = await supabase.storage.from('teslimler').upload(yol, dosya)
+      if (depoHatasi) {
+        setMesaj({ tip: 'hata', metin: 'Yükleme başarısız: ' + depoHatasi.message + ' (Dosya 50 MB sınırını aşıyorsa bağlantıyla teslim et.)' })
+        setGonderilenId(null)
+        return
+      }
+      dosya_yolu = yol
+      dosya_adi = dosya.name
+      dosya_boyut = dosya.size
+    }
+
     const { error } = await supabase.from('teslimler').insert({
       odev_id: odev.id,
       ogrenci_id: profil.id,
-      baglanti: url,
-      dosya_adi: 'Bağlantı ile teslim',
+      dosya_yolu,
+      dosya_adi: dosya_adi || (url ? 'Bağlantı ile teslim' : null),
+      dosya_boyut,
+      baglanti: url || null,
     })
-    if (error) setMesaj({ tip: 'hata', metin: error.message })
+    if (error) setMesaj({ tip: 'hata', metin: 'Kayıt hatası: ' + error.message })
     else {
-      setMesaj({ tip: 'basari', metin: 'Bağlantın teslim edildi.' })
+      setMesaj({ tip: 'basari', metin: 'Teslimin gönderildi. ✅' })
+      dosyaKaldir(odev)
       setLinkler((l) => ({ ...l, [odev.id]: '' }))
       yukle()
     }
+    setGonderilenId(null)
   }
 
   const indir = async (t) => {
-    if (t.baglanti) { window.open(t.baglanti, '_blank'); return }
-    const { data, error } = await supabase.storage.from('teslimler').createSignedUrl(t.dosya_yolu, 300)
-    if (!error) window.open(data.signedUrl, '_blank')
+    if (t.baglanti && !t.dosya_yolu) { window.open(t.baglanti, '_blank'); return }
+    if (t.baglanti && t.dosya_yolu) { window.open(t.baglanti, '_blank') }
+    if (t.dosya_yolu) {
+      const { data, error } = await supabase.storage.from('teslimler').createSignedUrl(t.dosya_yolu, 300)
+      if (!error) window.open(data.signedUrl, '_blank')
+    }
   }
 
   const sil = async (t) => {
@@ -234,6 +252,9 @@ function Odevler({ profil }) {
       {mesaj && <div className={mesaj.tip}>{mesaj.metin}</div>}
       {odevler.map((odev) => {
         const benimTeslimlerim = teslimler.filter((t) => t.odev_id === odev.id)
+        const secili = secilenler[odev.id]
+        const link = linkler[odev.id] || ''
+        const hazir = !!secili || !!link.trim()
         return (
           <div className="kart" key={odev.id}>
             <div className="baslik-satir">
@@ -257,41 +278,59 @@ function Odevler({ profil }) {
             )}
 
             <div style={{ marginTop: 14 }}>
+              {/* 1. Adım: dosya seç */}
               <label className="yukleme-alani" style={{ display: 'block', cursor: 'pointer' }}>
                 <input
                   type="file"
                   ref={(el) => (dosyaRef.current[odev.id] = el)}
-                  onChange={(e) => dosyaYukle(odev, e.target.files[0])}
-                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar,.jpg,.jpeg,.png,.mp4,.mov,.avi,.mp3,.wav"
+                  onChange={(e) => dosyaSec(odev, e.target.files[0])}
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.rar,.jpg,.jpeg,.png,.mp4,.mov,.avi,.mp3,.wav,.m4a"
                 />
-                <strong>{yukleniyorId === odev.id ? 'Yükleniyor…' : 'Dosya seç ve yükle'}</strong>
+                <strong>{secili ? 'Başka dosya seç' : '1️⃣ Dosya seç'}</strong>
                 <div className="ipucu">PDF, Word, video, ses, görsel, ZIP… (en fazla 50 MB)</div>
               </label>
 
+              {secili && (
+                <div className="dosya-satir" style={{ borderColor: 'var(--tahta)' }}>
+                  <span className="ad">📎 {secili.name} · {boyutYazisi(secili.size)} <em>(henüz gönderilmedi)</em></span>
+                  <button className="btn tehlike kucuk" onClick={() => dosyaKaldir(odev)}>Kaldır</button>
+                </div>
+              )}
+
+              {/* ve/veya bağlantı */}
               <div className="link-teslim">
                 <input
-                  placeholder="Büyük video için Drive/YouTube bağlantısı yapıştır…"
-                  value={linkler[odev.id] || ''}
+                  placeholder="…ve/veya Drive/YouTube bağlantısı yapıştır"
+                  value={link}
                   onChange={(e) => setLinkler((l) => ({ ...l, [odev.id]: e.target.value }))}
-                  onKeyDown={(e) => e.key === 'Enter' && baglantiGonder(odev)}
                 />
-                <button className="btn kucuk" onClick={() => baglantiGonder(odev)}>Bağlantıyı teslim et</button>
               </div>
               <div className="ipucu" style={{ marginTop: 6 }}>
-                💡 Videon 50 MB'tan büyükse: Google Drive'a yükle → sağ tık → Paylaş → "Bağlantıya sahip herkes" yap → linki buraya yapıştır.
+                💡 Videon 50 MB'tan büyükse: Google Drive'a yükle → Paylaş → "Bağlantıya sahip herkes" → linki yapıştır.
               </div>
+
+              {/* 2. Adım: gönder */}
+              <button
+                className="btn genis"
+                style={{ marginTop: 12 }}
+                onClick={() => teslimEt(odev)}
+                disabled={!hazir || gonderilenId === odev.id}
+              >
+                {gonderilenId === odev.id ? 'Gönderiliyor…' : '2️⃣ Teslim et'}
+              </button>
             </div>
 
             {benimTeslimlerim.map((t) => (
               <div key={t.id}>
                 <div className="dosya-satir">
                   <span className="ad">
-                    {t.baglanti ? '🔗 ' : '📎 '}
-                    {t.baglanti ? t.baglanti : t.dosya_adi}
+                    {t.baglanti && !t.dosya_yolu ? '🔗 ' : '📎 '}
+                    {t.dosya_yolu ? t.dosya_adi : t.baglanti}
+                    {t.dosya_yolu && t.baglanti ? ' + 🔗 bağlantı' : ''}
                     {t.dosya_boyut ? ' · ' + boyutYazisi(t.dosya_boyut) : ''} · {tarihYazisi(t.created_at)}
                   </span>
                   <span style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn ikincil kucuk" onClick={() => indir(t)}>{t.baglanti ? 'Aç' : 'İndir'}</button>
+                    <button className="btn ikincil kucuk" onClick={() => indir(t)}>{t.dosya_yolu ? 'İndir' : 'Aç'}</button>
                     <button className="btn tehlike kucuk" onClick={() => sil(t)}>Sil</button>
                   </span>
                 </div>
