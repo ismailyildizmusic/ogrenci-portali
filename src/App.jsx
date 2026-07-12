@@ -81,7 +81,7 @@ export default function App() {
         </span>
         <span className="imza">designed by {AYARLAR.tasarimci}</span>
       </footer>
-      <YardimBotu />
+      <YardimBotu profil={profil} />
     </div>
   )
 }
