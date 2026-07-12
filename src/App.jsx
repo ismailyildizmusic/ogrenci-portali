@@ -4,6 +4,7 @@ import Login from './pages/Login.jsx'
 import OgrenciPaneli from './pages/OgrenciPaneli.jsx'
 import AdminPaneli from './pages/AdminPaneli.jsx'
 import { AYARLAR } from './config'
+import YardimBotu from './YardimBotu.jsx'
 
 export default function App() {
   const [oturum, setOturum] = useState(null)
@@ -80,6 +81,7 @@ export default function App() {
         </span>
         <span className="imza">designed by {AYARLAR.tasarimci}</span>
       </footer>
+      <YardimBotu />
     </div>
   )
 }

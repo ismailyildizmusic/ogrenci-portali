@@ -85,6 +85,7 @@ export default function AdminPaneli() {
         <button className={sekme === 'teslimler' ? 'aktif' : ''} onClick={() => sekmeSec('teslimler')}>
           Teslimler{yeniTeslim > 0 && <span className="sekme-rozet">{yeniTeslim}</span>}
         </button>
+        <button className={sekme === 'istatistik' ? 'aktif' : ''} onClick={() => sekmeSec('istatistik')}>İstatistikler</button>
         <button className={sekme === 'ayarlar' ? 'aktif' : ''} onClick={() => sekmeSec('ayarlar')}>Ayarlar</button>
       </nav>
       {sekme === 'duyurular' && <DuyuruYonetimi />}
@@ -93,6 +94,7 @@ export default function AdminPaneli() {
       {sekme === 'etkinlikler' && <EtkinlikYonetimi ogrenciler={ogrenciler} />}
       {sekme === 'odevler' && <OdevYonetimi />}
       {sekme === 'teslimler' && <TeslimGorunumu ogrenciler={ogrenciler} />}
+      {sekme === 'istatistik' && <Istatistikler ogrenciler={ogrenciler} />}
       {sekme === 'ayarlar' && <AdminAyarlar />}
     </div>
   )
@@ -763,6 +765,99 @@ function AdminAyarlar() {
         <input id="a-tekrar" type="password" value={tekrar} onChange={(e) => setTekrar(e.target.value)} />
       </div>
       <button className="btn" onClick={degistir}>Kaydet</button>
+    </div>
+  )
+}
+
+
+/* ---------- İstatistikler ---------- */
+function Istatistikler({ ogrenciler }) {
+  const [ham, setHam] = useState(null)
+  const [siralama, setSiralama] = useState('teslim')
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('sorumluluklar').select('ogrenci_id, durum'),
+      supabase.from('teslimler').select('ogrenci_id, puan'),
+      supabase.from('etkinlik_katilimcilari').select('ogrenci_id'),
+    ]).then(([s, t, e]) => setHam({ s: s.data || [], t: t.data || [], e: e.data || [] }))
+  }, [])
+
+  if (!ham) return <div className="bos">Yükleniyor…</div>
+  if (ogrenciler.length === 0) return <div className="bos">Henüz öğrenci yok.</div>
+
+  const satirlar = ogrenciler.map((o) => {
+    const gorevler = ham.s.filter((x) => x.ogrenci_id === o.id)
+    const teslimler = ham.t.filter((x) => x.ogrenci_id === o.id)
+    const puanlar = teslimler.filter((x) => x.puan != null).map((x) => x.puan)
+    return {
+      id: o.id,
+      ad: o.ad_soyad,
+      gorev: gorevler.length,
+      tamamlanan: gorevler.filter((x) => x.durum === 'tamamlandi').length,
+      teslim: teslimler.length,
+      ortalama: puanlar.length ? Math.round(puanlar.reduce((a, b) => a + b, 0) / puanlar.length) : null,
+      etkinlik: ham.e.filter((x) => x.ogrenci_id === o.id).length,
+    }
+  })
+
+  const sirali = [...satirlar].sort((a, b) => {
+    if (siralama === 'ortalama') return (b.ortalama ?? -1) - (a.ortalama ?? -1)
+    if (siralama === 'ad') return a.ad.localeCompare(b.ad, 'tr')
+    return (b[siralama] || 0) - (a[siralama] || 0)
+  })
+
+  const zirve = (alan, etiket, birim) => {
+    const enIyi = [...satirlar].sort((a, b) => (b[alan] ?? -1) - (a[alan] ?? -1))[0]
+    if (!enIyi || !enIyi[alan]) return null
+    return (
+      <div className="ozet-kart" key={alan}>
+        <div className="ozet-sayi" style={{ fontSize: 17, lineHeight: 1.3 }}>🏆 {enIyi.ad}</div>
+        <div className="ozet-etiket">{etiket} ({enIyi[alan]}{birim})</div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="ozet-satir">
+        {zirve('teslim', 'En çok ödev teslimi', ' teslim')}
+        {zirve('tamamlanan', 'En çok görev tamamlayan', ' görev')}
+        {zirve('ortalama', 'En yüksek puan ortalaması', ' puan')}
+        {zirve('etkinlik', 'En çok etkinliğe katılan', ' etkinlik')}
+      </div>
+
+      <div className="alan" style={{ maxWidth: 280 }}>
+        <label htmlFor="i-sirala">Sıralama</label>
+        <select id="i-sirala" value={siralama} onChange={(e) => setSiralama(e.target.value)}>
+          <option value="teslim">Teslim sayısı</option>
+          <option value="tamamlanan">Tamamlanan görev</option>
+          <option value="ortalama">Puan ortalaması</option>
+          <option value="etkinlik">Etkinlik katılımı</option>
+          <option value="ad">İsme göre (A-Z)</option>
+        </select>
+      </div>
+
+      <div className="tablo-sarici">
+        <table className="tablo">
+          <thead>
+            <tr><th>#</th><th>Öğrenci</th><th>Görev</th><th>Tamamlanan</th><th>Teslim</th><th>Puan ort.</th><th>Etkinlik</th></tr>
+          </thead>
+          <tbody>
+            {sirali.map((s, i) => (
+              <tr key={s.id}>
+                <td className="mono">{i + 1}</td>
+                <td>{i === 0 && siralama !== 'ad' ? '🥇 ' : i === 1 && siralama !== 'ad' ? '🥈 ' : i === 2 && siralama !== 'ad' ? '🥉 ' : ''}{s.ad}</td>
+                <td className="mono">{s.gorev}</td>
+                <td className="mono">{s.tamamlanan}</td>
+                <td className="mono">{s.teslim}</td>
+                <td>{s.ortalama != null ? <span className="puan-rozet">{s.ortalama}</span> : <span style={{ color: 'var(--soluk)' }}>—</span>}</td>
+                <td className="mono">{s.etkinlik}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
